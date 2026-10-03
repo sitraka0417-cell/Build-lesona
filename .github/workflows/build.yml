@@ -32,7 +32,20 @@ jobs:
         with:
           gradle-version: 7.6.4
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+        run: |
+          set +e
+          gradle assembleDebug --console=plain > build.log 2>&1
+          CODE=$?
+          cat build.log
+          if [ $CODE -ne 0 ]; then
+            {
+              echo '### Erreur Gradle (debug) - fin du journal'
+              echo '```'
+              tail -n 70 build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $CODE
       - uses: actions/upload-artifact@v4
         with:
           name: Lesona-Lehibe-debug
@@ -74,7 +87,20 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
-        run: gradle assembleRelease --stacktrace
+        run: |
+          set +e
+          gradle assembleRelease --console=plain > build.log 2>&1
+          CODE=$?
+          cat build.log
+          if [ $CODE -ne 0 ]; then
+            {
+              echo '### Erreur Gradle (release) - fin du journal'
+              echo '```'
+              tail -n 70 build.log
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $CODE
 
       - uses: actions/upload-artifact@v4
         with:
