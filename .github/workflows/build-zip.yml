@@ -1,0 +1,55 @@
+name: Build APK depuis le ZIP
+
+# Il suffit de mettre lesona_lehibe_pro.zip (non décompressé) à la racine du dépôt.
+# Le workflow le décompresse lui-même et compile : plus besoin d'envoyer les dossiers un par un.
+on:
+  push:
+    paths: ['*.zip']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Décompresser le ZIP et trouver le projet
+        run: |
+          ZIP=$(find . -maxdepth 1 -name '*.zip' | head -1)
+          [ -n "$ZIP" ] || { echo "Aucun fichier .zip à la racine du dépôt"; exit 1; }
+          echo "ZIP utilisé : $ZIP"
+          mkdir -p _src
+          unzip -q "$ZIP" -d _src
+          SETTINGS=$(find _src -name 'settings.gradle' | head -1)
+          [ -n "$SETTINGS" ] || { echo "settings.gradle introuvable dans le ZIP"; exit 1; }
+          echo "ROOT=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 7.6.4
+
+      - name: APK debug
+        run: gradle -p "$ROOT" assembleDebug --stacktrace
+
+      - name: APK release (signé, réduit)
+        continue-on-error: true
+        run: gradle -p "$ROOT" assembleRelease --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Lesona-Lehibe-APK
+          path: |
+            ${{ env.ROOT }}/app/build/outputs/apk/debug/*.apk
+            ${{ env.ROOT }}/app/build/outputs/apk/release/*.apk
+          if-no-files-found: warn
